@@ -33,7 +33,7 @@ public class ExtractXMLS {
 
 	public ExtractXMLS() throws XPathExpressionException {
 		Util util = new Util();
-		String urlfolder = "/home/samuel/desenvolvimento/work-teste/xml/";
+		String urlfolder = "path";
 		List<ReportTable> listReportTable = contructListOfReportTable();
 		ArrayList<Project> projects = new ArrayList<Project>();
 		File folder = new File(urlfolder);
