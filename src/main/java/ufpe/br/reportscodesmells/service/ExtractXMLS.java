@@ -4,17 +4,13 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
@@ -22,6 +18,7 @@ import ufpe.br.reportscodesmells.model.CodeSmellsReported;
 import ufpe.br.reportscodesmells.model.Detector;
 import ufpe.br.reportscodesmells.model.Project;
 import ufpe.br.reportscodesmells.model.ReportTable;
+import ufpe.br.reportscodesmells.model.Summary;
 import ufpe.br.reportscodesmells.util.Util;
 
 @Service
@@ -33,28 +30,40 @@ public class ExtractXMLS {
 
 	public ExtractXMLS() throws XPathExpressionException {
 		Util util = new Util();
-		String urlfolder = "path";
+		String urlfolder = "/home/samuel/desenvolvimento/python/githubmining/spotbugs-orm-code-smell/analisados/";
 		List<ReportTable> listReportTable = contructListOfReportTable();
+		Summary summary = new Summary();
 		ArrayList<Project> projects = new ArrayList<Project>();
 		File folder = new File(urlfolder);
 	    File[] listOfFiles = folder.listFiles();
 	    for(int i = 0; i < listOfFiles.length; i++){
 	        String url = listOfFiles[i].getPath();
 	        if(url.endsWith(".xml")||url.endsWith(".XML")) {
-	        	projects.add(parseXMLtoProject(util, url));	
+	        	Project project = parseXMLtoProject(util, url);	
+	        	if (project!=null) {
+	        		projects.add(project);
+	        	}
 	        }
 	    }
 		for (Project project : projects) {
+			summary.addTotais(project.getTotal_bugs().equals("0"), Integer.valueOf(project.getTotal_classes()==""?"0":project.getTotal_classes()),
+					Integer.valueOf(project.getReferenced_classes()==""?"0":project.getReferenced_classes()), Integer.valueOf(project.getTotal_bugs()==""?"0":project.getTotal_bugs()),
+					Integer.valueOf(project.getTotal_size()==""?"0":project.getTotal_size()), Integer.valueOf(project.getNum_packages()==""?"0":project.getNum_packages()),
+					Integer.valueOf(project.getPriority_2()==""?"0":project.getPriority_2()), Integer.valueOf(project.getPriority_1()==""?"0":project.getPriority_1()));
 			for (CodeSmellsReported codeSmellReported : project.getCodeSmellReported()) {
 				for (ReportTable reportTable : listReportTable) {
 					if (reportTable.getSmell().equals(codeSmellReported.getDetector()) && codeSmellReported.getQtd()!=0) {
 						reportTable.addTotalInstances(codeSmellReported.getQtd());
 						reportTable.addaffectedProjects();
+						if(reportTable.getMax()<codeSmellReported.getQtd()) {
+							reportTable.setMax(codeSmellReported.getQtd());
+						}
 					}
 				}
 			}
 		}
 		System.out.println(listReportTable);
+		System.out.println(summary);
 	}
 
 
@@ -72,9 +81,9 @@ public class ExtractXMLS {
 		try {
 			util.baixaDocumentoXML(url);
 		} catch (ParserConfigurationException | SAXException | IOException e) {
-			System.out.println("erro");
+			return null;
 		}
-		Project project = new Project(util.buscaNoXML("BugCollection/Project/@projectName").orElse("nulo"), util.buscaNoXML("BugCollection/FindBugsSummary/@total_classes").orElse(null), util.buscaNoXML("BugCollection/FindBugsSummary/@referenced_classes").orElse(null), util.buscaNoXML("BugCollection/FindBugsSummary/@total_bugs").orElse(null), util.buscaNoXML("BugCollection/FindBugsSummary/@total_size").orElse(null), util.buscaNoXML("BugCollection/FindBugsSummary/@num_packages").orElse(null), util.buscaNoXML("BugCollection/FindBugsSummary/@priority_2").orElse(null), util.buscaNoXML("BugCollection/FindBugsSummary/@priority_1").orElse(null));
+		Project project = new Project(util.buscaNoXML("BugCollection/Project/@projectName").orElse("nulo"), util.buscaNoXML("BugCollection/FindBugsSummary/@total_classes").orElse("0"), util.buscaNoXML("BugCollection/FindBugsSummary/@referenced_classes").orElse("0"), util.buscaNoXML("BugCollection/FindBugsSummary/@total_bugs").orElse("0"), util.buscaNoXML("BugCollection/FindBugsSummary/@total_size").orElse("0"), util.buscaNoXML("BugCollection/FindBugsSummary/@num_packages").orElse("0"), util.buscaNoXML("BugCollection/FindBugsSummary/@priority_2").orElse("0"), util.buscaNoXML("BugCollection/FindBugsSummary/@priority_1").orElse("0"));
 		Stream<Node> nodeStream = util.buscaNoXMLList("BugCollection/BugInstance");
 		nodeStream.forEach((node)-> {
 			try {
